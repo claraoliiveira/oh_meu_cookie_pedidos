@@ -2,26 +2,31 @@
 {% block title %}Datas de retirada | Oh! Meu Cookie{% endblock %}
 {% block content %}
 <main class="management-shell">
-  <div class="page-heading"><div><span class="kicker">Agenda do pedido</span><h1>Datas de retirada</h1><p>O cliente só consegue finalizar quando existe pelo menos uma opção ativa.</p></div></div>
+  <div class="page-heading"><div><span class="kicker">Agenda do pedido</span><h1>Datas de retirada</h1><p>Escolha apenas a data. Os horários e locais são preenchidos automaticamente conforme o dia da semana.</p></div></div>
   <div class="agenda-grid">
     <section class="management-panel">
-      <h2>Liberar data e horário</h2>
+      <h2>Liberar uma data</h2>
+      <p class="schedule-hint">Disponível para segundas, quartas e sextas. Ao liberar, todos os horários daquele dia aparecem para o cliente.</p>
       <form method="post" class="stack-form">
         {% csrf_token %}<input type="hidden" name="action" value="add">
         <label>Data{{ form.pickup_date }}{{ form.pickup_date.errors }}</label>
-        <label>Horário{{ form.period }}{{ form.period.errors }}</label>
-        <label>Local da retirada{{ form.location }}{{ form.location.errors }}</label>
         {% if form.non_field_errors %}<div class="form-alert">{{ form.non_field_errors }}</div>{% endif %}
-        <button type="submit">Liberar opção</button>
+        <button type="submit">Liberar data e horários</button>
       </form>
     </section>
     <section class="management-panel">
-      <div class="panel-heading"><h2>Próximas opções</h2><span>{{ slots|length }}</span></div>
+      <div class="panel-heading"><h2>Próximas datas</h2><span>{{ date_count }}</span></div>
       <div class="slot-list">
-        {% for slot in slots %}
-          <div class="slot-row">
-            <div><strong>{{ slot.pickup_date|date:'l, d/m/Y' }}</strong><span>{{ slot.period }} · {{ slot.location }}</span></div>
-            <form method="post">{% csrf_token %}<input type="hidden" name="action" value="remove"><input type="hidden" name="slot_id" value="{{ slot.pk }}"><button type="submit">Remover</button></form>
+        {% regroup slots by pickup_date as date_groups %}
+        {% for date_group in date_groups %}
+          <div class="date-group">
+            <div class="date-group-head">
+              <strong>{{ date_group.grouper|date:'l, d/m/Y' }}</strong>
+              <form method="post">{% csrf_token %}<input type="hidden" name="action" value="remove_date"><input type="hidden" name="pickup_date" value="{{ date_group.grouper|date:'Y-m-d' }}"><button type="submit">Remover data</button></form>
+            </div>
+            <div class="date-group-slots">
+              {% for slot in date_group.list %}<span><b>{{ slot.period }}</b> — {{ slot.location }}</span>{% endfor %}
+            </div>
           </div>
         {% empty %}
           <div class="empty-state">Nenhuma data liberada. O formulário público está pausado.</div>

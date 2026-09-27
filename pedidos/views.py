@@ -8,24 +8,29 @@ from django.db.models import Q
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 
-from .forms import CheckoutForm, PickupSlotForm
+from .forms import CheckoutForm, PickupDateForm
 from .models import Customer, Order, OrderItem, PickupSlot, Product
+from .pickup_schedule import PICKUP_SCHEDULES, pickup_date_label, pickup_options_for
 
 
 def _catalog_context(form=None):
-    slots = list(
+    slots = [
+        slot
+        for slot in
         PickupSlot.objects.filter(
             active=True,
             pickup_date__gte=timezone.localdate(),
         ).order_by("pickup_date", "period")
-    )
+        if slot.pickup_date.weekday() in PICKUP_SCHEDULES
+    ]
     dates = []
     slots_by_date = {}
     for slot in slots:
         key = slot.pickup_date.isoformat()
         if key not in slots_by_date:
-            dates.append({"value": key, "label": slot.pickup_date.strftime("%d/%m/%Y")})
+            dates.append({"value": key, "label": pickup_date_label(slot.pickup_date)})
             slots_by_date[key] = []
         slots_by_date[key].append(
             {
@@ -162,18 +167,29 @@ def gestao_pedidos(request):
 
 @login_required
 def gestao_agenda(request):
-    form = PickupSlotForm(request.POST or None)
+    form = PickupDateForm(request.POST or None)
     if request.method == "POST":
         action = request.POST.get("action")
-        if action == "remove":
-            slot = get_object_or_404(PickupSlot, pk=request.POST.get("slot_id"))
-            slot.active = False
-            slot.save(update_fields=["active"])
-            messages.success(request, "Opção removida do formulário de pedidos.")
+        if action == "remove_date":
+            pickup_date = parse_date(request.POST.get("pickup_date", ""))
+            if pickup_date:
+                PickupSlot.objects.filter(pickup_date=pickup_date).update(active=False)
+                messages.success(request, "Data removida do formulário de pedidos.")
             return redirect("gestao_agenda")
         if action == "add" and form.is_valid():
-            form.save()
-            messages.success(request, "Nova opção de retirada liberada.")
+            pickup_date = form.cleaned_data["pickup_date"]
+            PickupSlot.objects.filter(pickup_date=pickup_date).update(active=False)
+            for period, location in pickup_options_for(pickup_date):
+                PickupSlot.objects.update_or_create(
+                    pickup_date=pickup_date,
+                    period=period,
+                    location=location,
+                    defaults={"active": True},
+                )
+            messages.success(
+                request,
+                f"{pickup_date_label(pickup_date)} liberada com todos os horários.",
+            )
             return redirect("gestao_agenda")
 
     slots = PickupSlot.objects.filter(
@@ -183,5 +199,9 @@ def gestao_agenda(request):
     return render(
         request,
         "gestao/agenda.html",
-        {"form": form, "slots": slots},
+        {
+            "form": form,
+            "slots": slots,
+            "date_count": len({slot.pickup_date for slot in slots}),
+        },
     )

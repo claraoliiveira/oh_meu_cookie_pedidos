@@ -142,6 +142,14 @@ select:disabled { opacity: .62; }
 .panel-heading h2 { margin: 0; }
 .panel-heading span { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 50%; color: var(--pink-dark); background: var(--pink-light); font-weight: 900; }
 .slot-list { display: grid; gap: 10px; margin-top: 18px; }
+.schedule-hint { margin: -8px 0 20px; color: var(--cocoa-soft); font-size: 12px; line-height: 1.55; }
+.date-group { padding: 15px; border: 1px solid var(--line); border-radius: 18px 18px 18px 7px; background: #fffaf7; }
+.date-group-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.date-group-head > strong { text-transform: capitalize; }
+.date-group-head button { padding: 8px 11px; border: 1px solid #e6b5bc; border-radius: 999px; color: #9a304a; background: white; font-size: 10px; font-weight: 800; }
+.date-group-slots { display: grid; gap: 7px; margin-top: 13px; padding-top: 13px; border-top: 1px dashed var(--line); }
+.date-group-slots span { color: var(--cocoa-soft); font-size: 11px; line-height: 1.45; }
+.date-group-slots b { color: var(--cocoa); }
 .slot-row { display: flex; padding: 14px; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--line); border-radius: 16px 16px 16px 6px; background: #fffaf7; }
 .slot-row strong, .slot-row span { display: block; }
 .slot-row strong { text-transform: capitalize; }

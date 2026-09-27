@@ -5,6 +5,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 
 from .models import Order, PickupSlot
+from .pickup_schedule import pickup_options_for
 
 
 class CheckoutForm(forms.Form):
@@ -70,15 +71,11 @@ class CheckoutForm(forms.Form):
         return cleaned
 
 
-class PickupSlotForm(forms.ModelForm):
-    class Meta:
-        model = PickupSlot
-        fields = ["pickup_date", "period", "location"]
-        widgets = {
-            "pickup_date": forms.DateInput(attrs={"type": "date"}),
-            "period": forms.TextInput(attrs={"placeholder": "Ex.: 14h às 18h"}),
-            "location": forms.TextInput(attrs={"placeholder": "Ex.: Rua..., nº..."}),
-        }
+class PickupDateForm(forms.Form):
+    pickup_date = forms.DateField(
+        label="Data disponível",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -88,4 +85,8 @@ class PickupSlotForm(forms.ModelForm):
         pickup_date = self.cleaned_data["pickup_date"]
         if pickup_date < timezone.localdate():
             raise forms.ValidationError("A data não pode estar no passado.")
+        if not pickup_options_for(pickup_date):
+            raise forms.ValidationError(
+                "Escolha uma data que caia em uma segunda-feira, quarta-feira ou sexta-feira."
+            )
         return pickup_date

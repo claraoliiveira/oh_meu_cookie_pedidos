@@ -8,6 +8,12 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import Order, PickupSlot, Product
+from .pickup_schedule import HOME_ADDRESS, SCHOOL
+
+
+def next_weekday(weekday):
+    today = timezone.localdate()
+    return today + timedelta(days=(weekday - today.weekday()) % 7)
 
 
 class PublicOrderTests(TestCase):
@@ -73,17 +79,75 @@ class ManagementTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response.url)
 
-    def test_manager_can_add_pickup_slot(self):
+    def test_manager_can_add_monday_with_automatic_slots(self):
         self.client.force_login(self.user)
-        pickup_date = timezone.localdate() + timedelta(days=3)
+        pickup_date = next_weekday(0)
         response = self.client.post(
             reverse("gestao_agenda"),
             {
                 "action": "add",
                 "pickup_date": pickup_date.isoformat(),
-                "period": "9h às 12h",
-                "location": "Loja",
             },
         )
         self.assertRedirects(response, reverse("gestao_agenda"))
-        self.assertTrue(PickupSlot.objects.filter(pickup_date=pickup_date).exists())
+        slots = PickupSlot.objects.filter(pickup_date=pickup_date, active=True)
+        self.assertEqual(slots.count(), 3)
+        self.assertTrue(slots.filter(period="12:10 até 12:30", location=SCHOOL).exists())
+        self.assertTrue(slots.filter(period="17:00 até 19:00", location=HOME_ADDRESS).exists())
+
+    def test_wednesday_has_four_automatic_slots(self):
+        self.client.force_login(self.user)
+        pickup_date = next_weekday(2)
+        response = self.client.post(
+            reverse("gestao_agenda"),
+            {"action": "add", "pickup_date": pickup_date.isoformat()},
+        )
+        self.assertRedirects(response, reverse("gestao_agenda"))
+        slots = PickupSlot.objects.filter(pickup_date=pickup_date, active=True)
+        self.assertEqual(slots.count(), 4)
+        self.assertTrue(slots.filter(period="19:00 até 20:00", location=HOME_ADDRESS).exists())
+        self.assertTrue(slots.filter(location__icontains="WhatsApp").exists())
+        catalog = self.client.get(reverse("catalogo"))
+        self.assertContains(catalog, f"Quarta-feira — {pickup_date:%d/%m/%Y}")
+        self.assertContains(catalog, "19:00 até 20:00")
+
+    def test_friday_has_three_automatic_slots(self):
+        self.client.force_login(self.user)
+        pickup_date = next_weekday(4)
+        response = self.client.post(
+            reverse("gestao_agenda"),
+            {"action": "add", "pickup_date": pickup_date.isoformat()},
+        )
+        self.assertRedirects(response, reverse("gestao_agenda"))
+        self.assertEqual(
+            PickupSlot.objects.filter(pickup_date=pickup_date, active=True).count(),
+            3,
+        )
+
+    def test_other_weekdays_are_rejected(self):
+        self.client.force_login(self.user)
+        pickup_date = next_weekday(1)
+        response = self.client.post(
+            reverse("gestao_agenda"),
+            {"action": "add", "pickup_date": pickup_date.isoformat()},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Escolha uma data que caia em uma segunda-feira, quarta-feira ou sexta-feira.",
+        )
+        self.assertFalse(PickupSlot.objects.filter(pickup_date=pickup_date).exists())
+
+    def test_removing_date_hides_all_its_slots(self):
+        self.client.force_login(self.user)
+        pickup_date = next_weekday(0)
+        self.client.post(
+            reverse("gestao_agenda"),
+            {"action": "add", "pickup_date": pickup_date.isoformat()},
+        )
+        response = self.client.post(
+            reverse("gestao_agenda"),
+            {"action": "remove_date", "pickup_date": pickup_date.isoformat()},
+        )
+        self.assertRedirects(response, reverse("gestao_agenda"))
+        self.assertFalse(PickupSlot.objects.filter(pickup_date=pickup_date, active=True).exists())

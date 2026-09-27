@@ -7,7 +7,7 @@ Versão enxuta do site feita em Python e Django para receber pedidos de cookies.
 - formulário público inspirado no site do Google Apps Script;
 - nome e WhatsApp do cliente;
 - quantidade de cada sabor e total atualizado na tela;
-- datas, horários e locais de retirada configuráveis;
+- datas de retirada liberadas pela gestão, com horários e locais automáticos;
 - pagamento por Pix ou cartão;
 - observações do pedido;
 - confirmação pelo WhatsApp;
@@ -15,17 +15,41 @@ Versão enxuta do site feita em Python e Django para receber pedidos de cookies.
 
 Esta versão **não possui** estoque de produtos, insumos, receitas, produção, contas a receber ou financeiro. A quantidade do cardápio não é limitada por estoque.
 
+## Horários automáticos de retirada
+
+Ao liberar uma data, o sistema identifica o dia da semana e cria as opções abaixo:
+
+### Segunda-feira
+
+- 12:10 até 12:30 — E.E. Madre Serafina de Jesus
+- 14:10 até 14:40 — E.E. Madre Serafina de Jesus
+- 17:00 até 19:00 — Rua Dr. Carlos Prates, 1332 - Centro
+
+### Quarta-feira
+
+- 12:10 até 12:30 — E.E. Madre Serafina de Jesus
+- 13:20 até 14:10 — E.E. Madre Serafina de Jesus
+- 15:00 até 17:30 — E.E. Madre Serafina de Jesus (marcar o horário exato pelo WhatsApp)
+- 19:00 até 20:00 — Rua Dr. Carlos Prates, 1332 - Centro
+
+### Sexta-feira
+
+- 12:10 até 12:30 — E.E. Madre Serafina de Jesus
+- 14:10 até 14:40 — E.E. Madre Serafina de Jesus
+- 17:00 até 19:00 — Rua Dr. Carlos Prates, 1332 - Centro
+
+Datas de terça, quinta, sábado ou domingo são recusadas pelo formulário.
+
 ## Instalação no Windows
 
 Abra o PowerShell dentro desta pasta (a mesma que contém `manage.py`) e execute:
 
-```powershell
+```cmd
 py -m venv venv
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\venv\Scripts\Activate.ps1
+venv\Scripts\activate.bat
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-Copy-Item .env.example .env
+copy .env.example .env
 python manage.py migrate
 python manage.py criar_gestor clara
 python manage.py runserver
@@ -55,9 +79,9 @@ Use o WhatsApp apenas com números, incluindo `55` e o DDD.
 
 Se este projeto estiver em um repositório próprio:
 
-```powershell
+```cmd
 git add .
-git commit -m "Cria versão somente para pedidos"
+git commit -m "Atualiza horários automáticos de retirada"
 git push
 ```
 
@@ -69,18 +93,19 @@ No console Bash do PythonAnywhere:
 
 ```bash
 cd ~/oh_meu_cookie_pedidos
-git pull
-source venv/bin/activate
+source ~/.virtualenvs/ohmeucookie/bin/activate
+git pull origin main
 python -m pip install -r requirements.txt
 python manage.py migrate
 python manage.py collectstatic --noinput
+python manage.py check --deploy
 ```
 
 Na aba **Web**, configure:
 
 - **Source code:** `/home/SEU_USUARIO/oh_meu_cookie_pedidos`
 - **Working directory:** `/home/SEU_USUARIO/oh_meu_cookie_pedidos`
-- **Virtualenv:** `/home/SEU_USUARIO/oh_meu_cookie_pedidos/venv`
+- **Virtualenv:** `/home/SEU_USUARIO/.virtualenvs/ohmeucookie`
 
 No arquivo WSGI do PythonAnywhere, deixe:
 
@@ -109,7 +134,7 @@ Na primeira publicação, crie o login:
 
 ```bash
 cd ~/oh_meu_cookie_pedidos
-source venv/bin/activate
+source ~/.virtualenvs/ohmeucookie/bin/activate
 python manage.py criar_gestor clara
 ```
 
@@ -117,8 +142,9 @@ python manage.py criar_gestor clara
 
 1. Entre em `/entrar/`.
 2. Abra **Datas de retirada**.
-3. Cadastre a data, o horário e o local.
-4. A opção aparecerá imediatamente na página pública.
+3. Escolha uma segunda, quarta ou sexta-feira.
+4. O sistema libera automaticamente todos os horários e locais daquele dia.
+5. As opções aparecem imediatamente na página pública.
 
 Se nenhuma data estiver ativa, o botão de finalizar permanece bloqueado. Isso evita receber pedidos em dias que você não pode atender.
 
