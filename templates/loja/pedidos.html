@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Faça seu pedido | Oh! Meu Cookie{% endblock %}
+{% block content %}
+<main class="order-page">
+  <section class="brand-banner">
+    <img src="{% static 'img/cookie-hero-product-visual.png' %}" alt="Cookie artesanal com chocolate">
+    <div class="banner-shade"></div>
+    <div class="banner-copy">
+      <span>Cookies tornam dias normais mais doces</span>
+      <h1>Seu momento pede<br><em>Oh! Meu Cookie.</em></h1>
+      <p>Escolha seus sabores, reserve a retirada e deixe o resto com a gente.</p>
+      <a href="#fazer-pedido" class="primary-button">Montar meu pedido 🍪</a>
+    </div>
+  </section>
+
+  <form id="fazer-pedido" action="{% url 'finalizar_pedido' %}" method="post" class="order-form" data-order-form>
+    {% csrf_token %}
+    {{ form.items_json }}
+    {{ form.pickup_date }}
+
+    {% if form.non_field_errors %}<div class="form-alert">{{ form.non_field_errors }}</div>{% endif %}
+    {% if form.items_json.errors %}<div class="form-alert">{{ form.items_json.errors }}</div>{% endif %}
+
+    <section class="form-card customer-card">
+      <div class="section-title"><span>01</span><div><small>Primeiro, conta pra gente</small><h2>Seus dados</h2></div></div>
+      <div class="two-fields">
+        <label>Nome *{{ form.name }}{{ form.name.errors }}</label>
+        <label>Telefone / WhatsApp *{{ form.phone }}{{ form.phone.errors }}</label>
+      </div>
+    </section>
+
+    <section class="form-card products-card">
+      <div class="section-title"><span>02</span><div><small>Agora vem a melhor parte</small><h2>Monte seu pedido</h2></div></div>
+      <div class="product-list">
+        {% for product in products %}
+          <article class="product-row" data-product data-id="{{ product.pk }}" data-name="{{ product.name }}" data-price="{{ product.price }}">
+            <div class="product-emoji" aria-hidden="true">🍪</div>
+            <div class="product-copy">
+              <div class="product-name-line">
+                <h3>{{ product.name }}</h3>
+                {% if product.featured %}<span>favorito</span>{% endif %}
+              </div>
+              <p>{{ product.description }}</p>
+              <strong>R$ {{ product.price|floatformat:2 }}</strong>
+            </div>
+            <div class="quantity-control" aria-label="Quantidade de {{ product.name }}">
+              <button type="button" data-minus aria-label="Diminuir {{ product.name }}">−</button>
+              <output data-quantity>0</output>
+              <button type="button" data-plus aria-label="Aumentar {{ product.name }}">+</button>
+            </div>
+          </article>
+        {% empty %}
+          <div class="empty-state">O cardápio está sendo preparado. Volte em breve 🍪</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="form-card summary-card">
+      <div class="section-title"><span>03</span><div><small>Confira antes de enviar</small><h2>Resumo do pedido</h2></div></div>
+      <div class="summary-lines" data-summary-lines>
+        <p class="empty-summary">Escolha seus cookies para ver o resumo.</p>
+      </div>
+      <div class="summary-total"><span>Total</span><strong data-order-total>R$ 0,00</strong></div>
+    </section>
+
+    <div class="checkout-grid">
+      <section class="form-card">
+        <div class="section-title compact"><span>04</span><div><small>Combine com a gente</small><h2>Retirada</h2></div></div>
+        {% if available_dates %}
+          <label>Data da retirada *
+            <select data-date-select required>
+              <option value="">Escolha a data</option>
+              {% for date in available_dates %}<option value="{{ date.value }}">{{ date.label }}</option>{% endfor %}
+            </select>
+          </label>
+          <label>Horário e local *{{ form.pickup_slot }}{{ form.pickup_slot.errors }}</label>
+        {% else %}
+          <div class="schedule-closed"><strong>Agenda fechada no momento</strong><p>Assim que uma nova data for liberada, ela aparecerá aqui.</p></div>
+        {% endif %}
+      </section>
+
+      <section class="form-card">
+        <div class="section-title compact"><span>05</span><div><small>Últimos detalhes</small><h2>Pagamento</h2></div></div>
+        <label>Forma de pagamento *{{ form.payment_method }}{{ form.payment_method.errors }}</label>
+        <label>Observações{{ form.notes }}{{ form.notes.errors }}</label>
+      </section>
+    </div>
+
+    {% if available_dates and products %}
+      <button class="submit-order" type="submit">Finalizar pedido <span>🍪</span></button>
+      <p class="submit-note">Você verá um resumo e poderá confirmar o pedido pelo WhatsApp.</p>
+    {% else %}
+      <button class="submit-order" type="button" disabled>Aguardando novas datas</button>
+    {% endif %}
+  </form>
+  {{ slots_by_date|json_script:"pickup-slots-data" }}
+</main>
+{% endblock %}
+{% block scripts %}<script src="{% static 'js/pedidos.js' %}?v=1" defer></script>{% endblock %}

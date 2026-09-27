@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Pedido recebido | Oh! Meu Cookie{% endblock %}
+{% block content %}
+<main class="center-page">
+  <section class="success-card">
+    <div class="success-cookie">🍪</div>
+    <span class="kicker">Pedido #{{ order.pk }}</span>
+    <h1>Seu pedido chegou quentinho por aqui!</h1>
+    <p>Recebemos tudo, {{ order.customer.name }}. Agora confirme os detalhes pelo WhatsApp.</p>
+
+    <div class="receipt">
+      {% for item in order.items.all %}
+        <div><span>{{ item.quantity }}x {{ item.product.name }}</span><strong>R$ {{ item.subtotal|floatformat:2 }}</strong></div>
+      {% endfor %}
+      <div><span>Retirada</span><strong>{{ order.pickup_slot.pickup_date|date:'d/m/Y' }} · {{ order.pickup_slot.period }}</strong></div>
+      <div class="receipt-total"><span>Total</span><strong>R$ {{ order.total|floatformat:2 }}</strong></div>
+    </div>
+
+    <a class="whatsapp-button" href="{{ whatsapp_url }}" target="_blank" rel="noopener">Confirmar pelo WhatsApp</a>
+    <a class="back-link" href="{% url 'catalogo' %}">Fazer outro pedido</a>
+  </section>
+</main>
+{% endblock %}

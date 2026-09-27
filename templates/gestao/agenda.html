@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Datas de retirada | Oh! Meu Cookie{% endblock %}
+{% block content %}
+<main class="management-shell">
+  <div class="page-heading"><div><span class="kicker">Agenda do pedido</span><h1>Datas de retirada</h1><p>O cliente só consegue finalizar quando existe pelo menos uma opção ativa.</p></div></div>
+  <div class="agenda-grid">
+    <section class="management-panel">
+      <h2>Liberar data e horário</h2>
+      <form method="post" class="stack-form">
+        {% csrf_token %}<input type="hidden" name="action" value="add">
+        <label>Data{{ form.pickup_date }}{{ form.pickup_date.errors }}</label>
+        <label>Horário{{ form.period }}{{ form.period.errors }}</label>
+        <label>Local da retirada{{ form.location }}{{ form.location.errors }}</label>
+        {% if form.non_field_errors %}<div class="form-alert">{{ form.non_field_errors }}</div>{% endif %}
+        <button type="submit">Liberar opção</button>
+      </form>
+    </section>
+    <section class="management-panel">
+      <div class="panel-heading"><h2>Próximas opções</h2><span>{{ slots|length }}</span></div>
+      <div class="slot-list">
+        {% for slot in slots %}
+          <div class="slot-row">
+            <div><strong>{{ slot.pickup_date|date:'l, d/m/Y' }}</strong><span>{{ slot.period }} · {{ slot.location }}</span></div>
+            <form method="post">{% csrf_token %}<input type="hidden" name="action" value="remove"><input type="hidden" name="slot_id" value="{{ slot.pk }}"><button type="submit">Remover</button></form>
+          </div>
+        {% empty %}
+          <div class="empty-state">Nenhuma data liberada. O formulário público está pausado.</div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</main>
+{% endblock %}

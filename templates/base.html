@@ -1,0 +1,52 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Peça seus cookies artesanais Oh! Meu Cookie para retirada.">
+  <title>{% block title %}Oh! Meu Cookie — Pedidos{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=1">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{% url 'catalogo' %}" aria-label="Oh! Meu Cookie — início">
+      <img src="{% static 'img/logo-oh-meu-cookie.png' %}" alt="Logo Oh! Meu Cookie">
+      <span><strong>Oh! Meu Cookie</strong><small>{% if '/gestao/' in request.path %}pedidos da loja{% else %}fresquinho do forno{% endif %}</small></span>
+    </a>
+    <div class="topbar-actions">
+      {% if user.is_authenticated and '/gestao/' in request.path %}
+        <a class="soft-button" href="{% url 'catalogo' %}" target="_blank" rel="noopener">Ver loja</a>
+        <form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="text-button">Sair</button></form>
+      {% else %}
+        <span class="pickup-note">Retirada · Pix ou cartão</span>
+        <a class="manager-link" href="{% url 'login' %}?next={% url 'gestao_pedidos' %}">Entrar</a>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if user.is_authenticated and '/gestao/' in request.path %}
+    <nav class="management-nav" aria-label="Área de pedidos">
+      <a href="{% url 'gestao_pedidos' %}">Pedidos</a>
+      <a href="{% url 'gestao_agenda' %}">Datas de retirada</a>
+    </nav>
+  {% endif %}
+
+  {% if messages %}
+    <div class="toast-stack" aria-live="polite">
+      {% for message in messages %}<div class="toast {{ message.tags }}">{{ message }}</div>{% endfor %}
+    </div>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+
+  <footer class="footer">
+    <span><strong>Oh! Meu Cookie</strong> · Mais que cookies, pequenos momentos felizes.</span>
+    <span>Pedidos somente para retirada.</span>
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

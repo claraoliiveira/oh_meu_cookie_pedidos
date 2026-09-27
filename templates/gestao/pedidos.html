@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Pedidos | Oh! Meu Cookie{% endblock %}
+{% block content %}
+<main class="management-shell">
+  <div class="page-heading">
+    <div><span class="kicker">Área protegida</span><h1>Pedidos recebidos</h1><p>Acompanhe cada pedido, o preparo e a confirmação do pagamento.</p></div>
+    <form method="get" class="search-form"><input name="q" value="{{ query }}" placeholder="Nome, WhatsApp ou nº"><button type="submit">Buscar</button></form>
+  </div>
+
+  <section class="management-panel">
+    <div class="order-cards">
+      {% for order in orders %}
+        <article class="management-order">
+          <div class="order-head">
+            <div><span class="status-badge status-{{ order.status|lower }}">{{ order.get_status_display }}</span><h2>Pedido #{{ order.pk }}</h2><small>{{ order.created_at|date:'d/m/Y · H:i' }}</small></div>
+            <strong>R$ {{ order.total|floatformat:2 }}</strong>
+          </div>
+          <div class="order-info-grid">
+            <div><small>Cliente</small><strong>{{ order.customer.name }}</strong><span>{{ order.customer.phone }}</span></div>
+            <div><small>Retirada</small><strong>{{ order.pickup_slot.pickup_date|date:'d/m/Y' }}</strong><span>{{ order.pickup_slot.period }} · {{ order.pickup_slot.location }}</span></div>
+            <div><small>Pagamento</small><strong>{{ order.get_payment_method_display }}</strong><span>{% if order.payment_confirmed %}Confirmado{% else %}Pendente{% endif %}</span></div>
+          </div>
+          <div class="ordered-items">
+            {% for item in order.items.all %}<span>{{ item.quantity }}x {{ item.product.name }}</span>{% endfor %}
+          </div>
+          {% if order.notes %}<p class="order-notes"><b>Observações:</b> {{ order.notes }}</p>{% endif %}
+          <form method="post" class="order-update">
+            {% csrf_token %}<input type="hidden" name="order_id" value="{{ order.pk }}">
+            <label>Status<select name="status">{% for value,label in statuses %}<option value="{{ value }}" {% if order.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+            <label class="check-line"><input type="checkbox" name="payment_confirmed" {% if order.payment_confirmed %}checked{% endif %}><span>Pagamento confirmado</span></label>
+            <button type="submit">Salvar pedido</button>
+          </form>
+        </article>
+      {% empty %}
+        <div class="empty-state">Nenhum pedido encontrado.</div>
+      {% endfor %}
+    </div>
+  </section>
+</main>
+{% endblock %}
