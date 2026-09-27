@@ -3,20 +3,36 @@
 {% block content %}
 <main class="center-page">
   <section class="success-card">
-    <div class="success-cookie">🍪</div>
+    <div class="success-cookie">{% if order.payment_confirmed %}✓{% else %}🍪{% endif %}</div>
     <span class="kicker">Pedido #{{ order.pk }}</span>
-    <h1>Seu pedido chegou quentinho por aqui!</h1>
-    <p>Recebemos tudo, {{ order.customer.name }}. Agora confirme os detalhes pelo WhatsApp.</p>
+    {% if order.payment_confirmed %}
+      <h1>Pagamento aprovado!</h1>
+      <p>Prontinho, {{ order.customer.name }}. Seu pedido está confirmado e já apareceu para a nossa equipe.</p>
+      <div class="payment-status paid">✓ Pago pela InfinitePay · {{ order.get_payment_method_display }}{% if order.payment_installments and order.payment_installments > 1 %} em {{ order.payment_installments }}x{% endif %}</div>
+    {% else %}
+      <h1>Seu pedido foi criado.</h1>
+      <p>{{ order.customer.name }}, falta concluir o pagamento para confirmar seu pedido.</p>
+      <div class="payment-status pending">Pagamento pendente</div>
+    {% endif %}
 
     <div class="receipt">
       {% for item in order.items.all %}
         <div><span>{{ item.quantity }}x {{ item.product.name }}</span><strong>R$ {{ item.subtotal|floatformat:2 }}</strong></div>
       {% endfor %}
       <div><span>Retirada</span><strong>{{ order.pickup_slot.pickup_date|date:'d/m/Y' }} · {{ order.pickup_slot.period }}</strong></div>
+      <div><span>Local</span><strong>{{ order.pickup_slot.location }}</strong></div>
       <div class="receipt-total"><span>Total</span><strong>R$ {{ order.total|floatformat:2 }}</strong></div>
     </div>
 
-    <a class="whatsapp-button" href="{{ whatsapp_url }}" target="_blank" rel="noopener">Confirmar pelo WhatsApp</a>
+    {% if order.payment_confirmed %}
+      <a class="whatsapp-button" href="{{ whatsapp_url }}" target="_blank" rel="noopener">Falar com a loja pelo WhatsApp</a>
+    {% else %}
+      <form action="{% url 'iniciar_pagamento' order.public_token %}" method="post">
+        {% csrf_token %}
+        <button class="submit-order payment-retry" type="submit">Pagar agora com Pix ou cartão</button>
+      </form>
+      <a class="support-link" href="{{ whatsapp_url }}" target="_blank" rel="noopener">Preciso de ajuda pelo WhatsApp</a>
+    {% endif %}
     <a class="back-link" href="{% url 'catalogo' %}">Fazer outro pedido</a>
   </section>
 </main>

@@ -24,9 +24,26 @@ class OrderItemInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ("id", "customer", "pickup_slot", "status", "payment_method", "payment_confirmed", "total")
+    list_display = (
+        "id",
+        "customer",
+        "pickup_slot",
+        "status",
+        "payment_method",
+        "payment_confirmed",
+        "paid_at",
+        "total",
+    )
     list_filter = ("status", "payment_method", "payment_confirmed")
-    search_fields = ("customer__name", "customer__phone")
+    search_fields = ("customer__name", "customer__phone", "payment_transaction_nsu")
+    readonly_fields = (
+        "checkout_url",
+        "payment_transaction_nsu",
+        "payment_slug",
+        "payment_capture_method",
+        "payment_installments",
+        "paid_at",
+    )
     inlines = [OrderItemInline]
 
 

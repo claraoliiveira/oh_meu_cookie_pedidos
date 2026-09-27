@@ -83,13 +83,17 @@
       <section class="form-card">
         <div class="section-title compact"><span>05</span><div><small>Últimos detalhes</small><h2>Pagamento</h2></div></div>
         <label>Forma de pagamento *{{ form.payment_method }}{{ form.payment_method.errors }}</label>
+        <div class="secure-payment-note">
+          <strong>🔒 Pagamento seguro pela InfinitePay</strong>
+          <p>Você será direcionado para pagar por Pix ou cartão. Os dados do cartão não passam pelo nosso site.</p>
+        </div>
         <label>Observações{{ form.notes }}{{ form.notes.errors }}</label>
       </section>
     </div>
 
     {% if available_dates and products %}
-      <button class="submit-order" type="submit">Finalizar pedido <span>🍪</span></button>
-      <p class="submit-note">Você verá um resumo e poderá confirmar o pedido pelo WhatsApp.</p>
+      <button class="submit-order" type="submit">Ir para o pagamento seguro <span>🔒</span></button>
+      <p class="submit-note">Seu pedido será confirmado automaticamente após a aprovação do pagamento.</p>
     {% else %}
       <button class="submit-order" type="button" disabled>Aguardando novas datas</button>
     {% endif %}

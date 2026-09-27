@@ -78,8 +78,8 @@ class Order(models.Model):
         CANCELLED = "CANCELADO", "Cancelado"
 
     class PaymentMethod(models.TextChoices):
-        PIX = "PIX", "Pix"
-        CARD = "CARTAO", "Cartão"
+        PIX = "PIX", "Pix online"
+        CARD = "CARTAO", "Cartão de crédito online"
 
     customer = models.ForeignKey(
         Customer,
@@ -107,6 +107,25 @@ class Order(models.Model):
         choices=PaymentMethod.choices,
     )
     payment_confirmed = models.BooleanField("pagamento confirmado", default=False)
+    checkout_url = models.URLField("link do checkout", blank=True)
+    payment_transaction_nsu = models.CharField(
+        "identificador da transação",
+        max_length=120,
+        blank=True,
+        db_index=True,
+    )
+    payment_slug = models.CharField("código da cobrança", max_length=120, blank=True)
+    payment_capture_method = models.CharField(
+        "meio confirmado pela InfinitePay",
+        max_length=30,
+        blank=True,
+    )
+    payment_installments = models.PositiveSmallIntegerField(
+        "parcelas",
+        null=True,
+        blank=True,
+    )
+    paid_at = models.DateTimeField("pago em", null=True, blank=True)
     notes = models.TextField("observações", blank=True)
     total = models.DecimalField("total", max_digits=10, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)

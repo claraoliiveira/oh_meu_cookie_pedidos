@@ -22,7 +22,7 @@
         <a class="soft-button" href="{% url 'catalogo' %}" target="_blank" rel="noopener">Ver loja</a>
         <form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="text-button">Sair</button></form>
       {% else %}
-        <span class="pickup-note">Retirada · Pix ou cartão</span>
+        <span class="pickup-note">Retirada · Pagamento online seguro</span>
         <a class="manager-link" href="{% url 'login' %}?next={% url 'gestao_pedidos' %}">Entrar</a>
       {% endif %}
     </div>

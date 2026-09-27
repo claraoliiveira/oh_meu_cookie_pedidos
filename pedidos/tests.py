@@ -1,13 +1,14 @@
 import json
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Order, PickupSlot, Product
+from .models import Customer, Order, OrderItem, PickupSlot, Product
 from .pickup_schedule import HOME_ADDRESS, SCHOOL
 
 
@@ -68,6 +69,98 @@ class PublicOrderTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Order.objects.count(), 0)
 
+    @override_settings(INFINITEPAY_HANDLE="clara-oliveira-cqv", PUBLIC_BASE_URL="https://loja.test")
+    @patch("pedidos.payments.requests.post")
+    def test_order_redirects_to_secure_infinitepay_checkout(self, mocked_post):
+        gateway_response = Mock()
+        gateway_response.raise_for_status.return_value = None
+        gateway_response.json.return_value = {
+            "url": "https://checkout.infinitepay.com.br/clara-oliveira-cqv?lenc=teste"
+        }
+        mocked_post.return_value = gateway_response
+
+        response = self.client.post(
+            reverse("finalizar_pedido"),
+            {
+                "name": "Clara",
+                "phone": "(33) 99999-0000",
+                "pickup_date": self.slot.pickup_date.isoformat(),
+                "pickup_slot": self.slot.pk,
+                "payment_method": Order.PaymentMethod.PIX,
+                "items_json": json.dumps([{"product_id": self.product.pk, "quantity": 2}]),
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith("https://checkout.infinitepay.com.br/"))
+        sent_payload = mocked_post.call_args.kwargs["json"]
+        self.assertEqual(sent_payload["handle"], "clara-oliveira-cqv")
+        self.assertEqual(sent_payload["items"][0]["price"], 750)
+        self.assertEqual(sent_payload["items"][0]["quantity"], 2)
+        self.assertEqual(sent_payload["webhook_url"], "https://loja.test/pagamentos/infinitepay/webhook/")
+
+    @override_settings(INFINITEPAY_HANDLE="clara-oliveira-cqv")
+    @patch("pedidos.payments.requests.post")
+    def test_payment_return_confirms_order_using_server_check(self, mocked_post):
+        order_response = self.client.post(
+            reverse("finalizar_pedido"),
+            {
+                "name": "Clara",
+                "phone": "33999990000",
+                "pickup_date": self.slot.pickup_date.isoformat(),
+                "pickup_slot": self.slot.pk,
+                "payment_method": Order.PaymentMethod.CARD,
+                "items_json": json.dumps([{"product_id": self.product.pk, "quantity": 2}]),
+            },
+        )
+        order = Order.objects.get()
+
+        payment_check_response = Mock()
+        payment_check_response.raise_for_status.return_value = None
+        payment_check_response.json.return_value = {
+            "success": True,
+            "paid": True,
+            "amount": 1500,
+            "paid_amount": 1500,
+            "installments": 1,
+            "capture_method": "pix",
+        }
+        mocked_post.return_value = payment_check_response
+
+        response = self.client.get(
+            reverse("pagamento_retorno", args=[order.public_token]),
+            {
+                "order_nsu": str(order.public_token),
+                "transaction_nsu": "transacao-123",
+                "slug": "cobranca-123",
+            },
+        )
+
+        self.assertEqual(order_response.status_code, 302)
+        self.assertRedirects(response, reverse("pedido_sucesso", args=[order.public_token]))
+        order.refresh_from_db()
+        self.assertTrue(order.payment_confirmed)
+        self.assertEqual(order.status, Order.Status.CONFIRMED)
+        self.assertEqual(order.payment_method, Order.PaymentMethod.PIX)
+        self.assertEqual(order.payment_transaction_nsu, "transacao-123")
+        self.assertIsNotNone(order.paid_at)
+
+    def test_webhook_rejects_invalid_order_identifier(self):
+        response = self.client.post(
+            reverse("infinitepay_webhook"),
+            data=json.dumps(
+                {
+                    "order_nsu": "nao-e-uuid",
+                    "transaction_nsu": "transacao",
+                    "invoice_slug": "slug",
+                    "amount": 1500,
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()["success"])
+
 
 class ManagementTests(TestCase):
     @classmethod
@@ -78,6 +171,38 @@ class ManagementTests(TestCase):
         response = self.client.get(reverse("gestao_pedidos"))
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response.url)
+
+    def test_unpaid_order_cannot_be_manually_confirmed(self):
+        self.client.force_login(self.user)
+        product = Product.objects.create(name="Cookie", price=Decimal("3.00"))
+        slot = PickupSlot.objects.create(
+            pickup_date=timezone.localdate() + timedelta(days=2),
+            period="12:10 até 12:30",
+            location=SCHOOL,
+        )
+        customer = Customer.objects.create(name="Cliente", phone="33999999999")
+        order = Order.objects.create(
+            customer=customer,
+            pickup_slot=slot,
+            payment_method=Order.PaymentMethod.PIX,
+            total=Decimal("3.00"),
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=product,
+            quantity=1,
+            unit_price=product.price,
+        )
+
+        response = self.client.post(
+            reverse("gestao_pedidos"),
+            {"order_id": order.pk, "status": Order.Status.CONFIRMED},
+            follow=True,
+        )
+        order.refresh_from_db()
+
+        self.assertEqual(order.status, Order.Status.NEW)
+        self.assertContains(response, "Aguarde a confirmação automática do pagamento")
 
     def test_manager_can_add_monday_with_automatic_slots(self):
         self.client.force_login(self.user)

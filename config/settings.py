@@ -89,6 +89,10 @@ LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "gestao_pedidos"
 LOGOUT_REDIRECT_URL = "catalogo"
 COOKIE_WHATSAPP_NUMBER = os.getenv("COOKIE_WHATSAPP_NUMBER", "5533991254014")
+INFINITEPAY_HANDLE = os.getenv("INFINITEPAY_HANDLE", "").strip().lstrip("$")
+INFINITEPAY_API_BASE = "https://api.checkout.infinitepay.io"
+INFINITEPAY_TIMEOUT = int(os.getenv("INFINITEPAY_TIMEOUT", "10"))
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = not DEBUG
