@@ -13,8 +13,10 @@
     try {
       const parsed = new URL(url);
       return parsed.protocol === "https:" && (
+        parsed.hostname === "checkout.infinitepay.io" ||
         parsed.hostname === "checkout.infinitepay.com.br" ||
-        parsed.hostname.endsWith(".infinitepay.com.br")
+        parsed.hostname.endsWith(".checkout.infinitepay.io") ||
+        parsed.hostname.endsWith(".checkout.infinitepay.com.br")
       );
     } catch (_) {
       return false;

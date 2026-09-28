@@ -96,6 +96,7 @@ class PublicOrderTests(TestCase):
         payment_page = self.client.get(response.url)
         self.assertEqual(payment_page.status_code, 200)
         self.assertContains(payment_page, "https://api.checkout.infinitepay.io/links")
+        self.assertContains(payment_page, "pagamento.js?v=2")
         payload = payment_page.context["checkout_payload"]
         self.assertEqual(payload["handle"], "clara-oliveira-cqv")
         self.assertEqual(payload["items"][0]["price"], 750)
