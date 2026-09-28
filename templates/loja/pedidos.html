@@ -14,7 +14,7 @@
     </div>
   </section>
 
-  <form id="fazer-pedido" action="{% url 'finalizar_pedido' %}" method="post" class="order-form" data-order-form>
+  <form id="fazer-pedido" action="{% url 'finalizar_pedido' %}" method="post" target="_blank" rel="noopener" class="order-form" data-order-form>
     {% csrf_token %}
     {{ form.items_json }}
     {{ form.pickup_date }}
@@ -93,7 +93,7 @@
 
     {% if available_dates and products %}
       <button class="submit-order" type="submit">Ir para o pagamento seguro <span>🔒</span></button>
-      <p class="submit-note">Seu pedido será confirmado automaticamente após a aprovação do pagamento.</p>
+      <p class="submit-note">O pagamento abrirá em uma nova aba e será confirmado automaticamente após a aprovação.</p>
     {% else %}
       <button class="submit-order" type="button" disabled>Aguardando novas datas</button>
     {% endif %}
