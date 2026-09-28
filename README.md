@@ -9,7 +9,8 @@ Versão enxuta do site feita em Python e Django para receber pedidos de cookies.
 - quantidade de cada sabor e total atualizado na tela;
 - datas de retirada liberadas pela gestão, com horários e locais automáticos;
 - pagamento online por Pix ou cartão de crédito com Checkout Integrado InfinitePay;
-- confirmação automática do pagamento por consulta segura e webhook;
+- checkout criado diretamente pelo navegador, sem depender da allowlist do PythonAnywhere;
+- confirmação manual na gestão depois de conferir o recebimento no App InfinitePay;
 - observações do pedido;
 - confirmação pelo WhatsApp;
 - área protegida apenas para **Pedidos** e **Datas de retirada**.
@@ -74,7 +75,6 @@ DJANGO_ALLOWED_HOSTS=seuusuario.pythonanywhere.com
 COOKIE_WHATSAPP_NUMBER=5533991254014
 INFINITEPAY_HANDLE=clara-oliveira-cqv
 PUBLIC_BASE_URL=https://ohmeucookiee.pythonanywhere.com
-INFINITEPAY_TIMEOUT=10
 ```
 
 Use o WhatsApp apenas com números, incluindo `55` e o DDD.
@@ -92,8 +92,11 @@ Antes de testar no site:
 A InfiniteTag configurada neste projeto é `clara-oliveira-cqv`, sem o símbolo `$`.
 
 O site não recebe nem armazena números de cartão. O cliente paga na página segura da
-InfinitePay. Depois, o servidor consulta a InfinitePay e só confirma o pedido quando o
-status, o identificador do pedido e o valor total forem validados.
+InfinitePay. O navegador cria o checkout diretamente na API da InfinitePay, sem fazer a
+requisição pelo servidor do PythonAnywhere.
+
+Depois do pagamento, confira o recebimento no App InfinitePay. Somente então abra a gestão,
+marque **Conferi no app InfinitePay e recebi** e salve o pedido.
 
 ## Atualizar com Git no computador
 
@@ -126,23 +129,11 @@ Confirme também que o `.env` do PythonAnywhere contém:
 ```env
 INFINITEPAY_HANDLE=clara-oliveira-cqv
 PUBLIC_BASE_URL=https://ohmeucookiee.pythonanywhere.com
-INFINITEPAY_TIMEOUT=10
 ```
-
-Se sua conta do PythonAnywhere for gratuita, teste a conexão externa no console Bash:
-
-```bash
-python -c "import requests; r=requests.get('https://api.checkout.infinitepay.io', timeout=10); print(r.status_code)"
-```
-
-Um `404` ou `405` significa que o servidor alcançou o domínio. Se aparecer bloqueio do
-proxy/allowlist, solicite ao PythonAnywhere a liberação de `api.checkout.infinitepay.io`
-usando a documentação oficial do Checkout Integrado, ou use um plano pago, que não possui
-essa restrição de acesso externo.
 
 Depois de clicar em **Reload**, faça um pedido barato de teste. Não considere apenas a tela
-de retorno: confirme no painel da InfinitePay que a cobrança foi recebida e confira se o
-pedido aparece na gestão com **Confirmado automaticamente**.
+de retorno: confirme no App InfinitePay que a cobrança foi recebida. Depois, entre na gestão,
+marque **Conferi no app InfinitePay e recebi** e salve o pedido.
 
 Na aba **Web**, configure:
 

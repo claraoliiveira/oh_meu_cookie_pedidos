@@ -21,7 +21,7 @@
             <div>
               <small>Pagamento</small>
               <strong>{{ order.get_payment_method_display }}</strong>
-              <span class="payment-mini {% if order.payment_confirmed %}paid{% else %}pending{% endif %}">{% if order.payment_confirmed %}✓ Confirmado automaticamente{% else %}Pendente{% endif %}</span>
+              <span class="payment-mini {% if order.payment_confirmed %}paid{% else %}pending{% endif %}">{% if order.payment_confirmed %}✓ Confirmado após conferência{% else %}Pendente de conferência{% endif %}</span>
               {% if order.paid_at %}<span>{{ order.paid_at|date:'d/m/Y · H:i' }}{% if order.payment_installments and order.payment_installments > 1 %} · {{ order.payment_installments }}x{% endif %}</span>{% endif %}
             </div>
           </div>
@@ -29,9 +29,10 @@
             {% for item in order.items.all %}<span>{{ item.quantity }}x {{ item.product.name }}</span>{% endfor %}
           </div>
           {% if order.notes %}<p class="order-notes"><b>Observações:</b> {{ order.notes }}</p>{% endif %}
-          <form method="post" class="order-update payment-readonly">
+          <form method="post" class="order-update">
             {% csrf_token %}<input type="hidden" name="order_id" value="{{ order.pk }}">
             <label>Status<select name="status">{% for value,label in statuses %}<option value="{{ value }}" {% if order.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+            <label class="check-line"><input type="checkbox" name="payment_confirmed" {% if order.payment_confirmed %}checked{% endif %}><span>Conferi no app InfinitePay e recebi</span></label>
             <button type="submit">Salvar pedido</button>
           </form>
         </article>

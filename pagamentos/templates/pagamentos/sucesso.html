@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Pagamento confirmado | Oh! Meu Cookie</title>
+    <style>
+        body{font-family:Arial,sans-serif;background:#fff7f8;color:#4b2e2e;margin:0;padding:24px}
+        .card{max-width:560px;margin:7vh auto;background:white;border-radius:20px;padding:32px;
+               box-shadow:0 10px 35px rgba(80,40,40,.12);text-align:center}
+        h1{margin-top:0} .btn{display:inline-block;padding:13px 20px;border-radius:12px;
+        background:#4b2e2e;color:white;text-decoration:none;margin-top:14px}
+        .muted{color:#786565;font-size:14px;line-height:1.5}
+    </style>
+</head>
+<body><main class="card"><h1>Pagamento confirmado! 🍪💕</h1>
+<p>Recebemos o pagamento do seu pedido.</p>
+{% if pagamento.receipt_url %}
+<a class="btn" href="{{ pagamento.receipt_url }}" target="_blank" rel="noopener">Ver comprovante</a>
+{% endif %}
+<p class="muted">Seu pedido continua registrado no Oh! Meu Cookie.</p></main></body></html>

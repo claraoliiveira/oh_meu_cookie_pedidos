@@ -10,9 +10,15 @@
       <p>Prontinho, {{ order.customer.name }}. Seu pedido está confirmado e já apareceu para a nossa equipe.</p>
       <div class="payment-status paid">✓ Pago pela InfinitePay · {{ order.get_payment_method_display }}{% if order.payment_installments and order.payment_installments > 1 %} em {{ order.payment_installments }}x{% endif %}</div>
     {% else %}
-      <h1>Seu pedido foi criado.</h1>
-      <p>{{ order.customer.name }}, falta concluir o pagamento para confirmar seu pedido.</p>
-      <div class="payment-status pending">Pagamento pendente</div>
+      {% if returned_from_payment %}
+        <h1>Pagamento enviado!</h1>
+        <p>{{ order.customer.name }}, agora vamos conferir o recebimento no app da InfinitePay e atualizar seu pedido.</p>
+        <div class="payment-status pending">Aguardando conferência da loja</div>
+      {% else %}
+        <h1>Seu pedido foi criado.</h1>
+        <p>{{ order.customer.name }}, falta concluir o pagamento para confirmar seu pedido.</p>
+        <div class="payment-status pending">Pagamento pendente</div>
+      {% endif %}
     {% endif %}
 
     <div class="receipt">
@@ -29,7 +35,7 @@
     {% else %}
       <form action="{% url 'iniciar_pagamento' order.public_token %}" method="post" target="_blank" rel="noopener">
         {% csrf_token %}
-        <button class="submit-order payment-retry" type="submit">Pagar agora com Pix ou cartão</button>
+        <button class="submit-order payment-retry" type="submit">{% if returned_from_payment %}Abrir pagamento novamente{% else %}Pagar agora com Pix ou cartão{% endif %}</button>
       </form>
       <a class="support-link" href="{{ whatsapp_url }}" target="_blank" rel="noopener">Preciso de ajuda pelo WhatsApp</a>
     {% endif %}

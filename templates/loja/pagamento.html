@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Pagamento seguro | Oh! Meu Cookie{% endblock %}
+{% block content %}
+<main class="center-page">
+  <section class="success-card payment-launcher" data-payment-page data-api-url="{{ checkout_api_url }}">
+    <div class="payment-loader" aria-hidden="true"></div>
+    <span class="kicker">Pedido #{{ order.pk }}</span>
+    <h1>Preparando seu pagamento seguro…</h1>
+    <p data-payment-message>Estamos abrindo a página da InfinitePay para você escolher Pix ou cartão de crédito.</p>
+    <div class="receipt payment-receipt">
+      <div><span>Total do pedido</span><strong>R$ {{ order.total|floatformat:2 }}</strong></div>
+    </div>
+    <button class="submit-order payment-retry" type="button" data-payment-retry hidden>Tentar novamente</button>
+    <a class="back-link" href="{% url 'pedido_sucesso' order.public_token %}">Voltar ao resumo do pedido</a>
+  </section>
+  {{ checkout_payload|json_script:"infinitepay-checkout-payload" }}
+</main>
+{% endblock %}
+{% block scripts %}<script src="{% static 'js/pagamento.js' %}?v=1" defer></script>{% endblock %}

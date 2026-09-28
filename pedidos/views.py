@@ -1,6 +1,3 @@
-import json
-import logging
-import uuid
 from urllib.parse import quote
 
 from django.conf import settings
@@ -8,20 +5,16 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Q
-from django.http import HttpResponseBadRequest, JsonResponse
+from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .forms import CheckoutForm, PickupDateForm
 from .models import Customer, Order, OrderItem, PickupSlot, Product
-from .payments import PaymentGatewayError, create_checkout, verify_payment
 from .pickup_schedule import PICKUP_SCHEDULES, pickup_date_label, pickup_options_for
-
-
-logger = logging.getLogger(__name__)
 
 
 def _catalog_context(form=None):
@@ -108,98 +101,65 @@ def finalizar_pedido(request):
         )
         order.recalculate_total()
 
-    try:
-        return redirect(create_checkout(order, request))
-    except PaymentGatewayError as exc:
-        messages.error(request, str(exc))
+    return redirect("pagamento_direto", token=order.public_token)
+
+
+def _public_url(request, route_name, *args):
+    path = reverse(route_name, args=args)
+    if settings.PUBLIC_BASE_URL:
+        return f"{settings.PUBLIC_BASE_URL}{path}"
+    return request.build_absolute_uri(path)
+
+
+def pagamento_direto(request, token):
+    order = get_object_or_404(
+        Order.objects.select_related("customer", "pickup_slot").prefetch_related(
+            "items__product"
+        ),
+        public_token=token,
+    )
+    if order.payment_confirmed:
         return redirect("pedido_sucesso", token=order.public_token)
+
+    phone = "".join(character for character in order.customer.phone if character.isdigit())
+    if not phone.startswith("55"):
+        phone = f"55{phone}"
+
+    checkout_payload = {
+        "handle": settings.INFINITEPAY_HANDLE,
+        "redirect_url": _public_url(request, "pedido_sucesso", order.public_token),
+        "order_nsu": str(order.public_token),
+        "customer": {
+            "name": order.customer.name,
+            "phone_number": f"+{phone}",
+        },
+        "items": [
+            {
+                "quantity": item.quantity,
+                "price": int(item.unit_price * 100),
+                "description": item.product.name,
+            }
+            for item in order.items.all()
+        ],
+    }
+    return render(
+        request,
+        "loja/pagamento.html",
+        {
+            "order": order,
+            "checkout_payload": checkout_payload,
+            "checkout_api_url": f"{settings.INFINITEPAY_API_BASE}/links",
+        },
+    )
 
 
 @require_POST
 def iniciar_pagamento(request, token):
-    order = get_object_or_404(
-        Order.objects.select_related("customer").prefetch_related("items__product"),
-        public_token=token,
-    )
+    order = get_object_or_404(Order, public_token=token)
     if order.payment_confirmed:
         messages.success(request, "Este pedido já está pago.")
         return redirect("pedido_sucesso", token=order.public_token)
-    try:
-        checkout_url = order.checkout_url or create_checkout(order, request)
-        return redirect(checkout_url)
-    except PaymentGatewayError as exc:
-        messages.error(request, str(exc))
-        return redirect("pedido_sucesso", token=order.public_token)
-
-
-def pagamento_retorno(request, token):
-    order = get_object_or_404(Order, public_token=token)
-    order_nsu = request.GET.get("order_nsu", "")
-    transaction_nsu = request.GET.get("transaction_nsu", "")
-    slug = request.GET.get("slug", "")
-
-    if order_nsu and order_nsu != str(order.public_token):
-        messages.error(request, "O retorno do pagamento não pertence a este pedido.")
-        return redirect("pedido_sucesso", token=order.public_token)
-
-    try:
-        verify_payment(order, transaction_nsu, slug)
-        messages.success(request, "Pagamento aprovado! Seu pedido foi confirmado.")
-    except PaymentGatewayError as exc:
-        messages.error(request, str(exc))
-    return redirect("pedido_sucesso", token=order.public_token)
-
-
-@csrf_exempt
-@require_POST
-def infinitepay_webhook(request):
-    try:
-        payload = json.loads(request.body.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return JsonResponse(
-            {"success": False, "message": "JSON inválido"},
-            status=400,
-        )
-
-    if not isinstance(payload, dict):
-        return JsonResponse(
-            {"success": False, "message": "Conteúdo inválido"},
-            status=400,
-        )
-
-    order_nsu = str(payload.get("order_nsu", ""))
-    transaction_nsu = str(payload.get("transaction_nsu", ""))
-    slug = str(payload.get("invoice_slug", ""))
-    try:
-        public_token = uuid.UUID(order_nsu)
-    except (ValueError, AttributeError):
-        public_token = None
-    order = Order.objects.filter(public_token=public_token).first() if public_token else None
-    if not order:
-        return JsonResponse(
-            {"success": False, "message": "Pedido não encontrado"},
-            status=400,
-        )
-
-    try:
-        informed_amount = int(payload.get("amount"))
-    except (TypeError, ValueError):
-        informed_amount = -1
-    expected_amount = int(order.total * 100)
-    if informed_amount != expected_amount:
-        logger.warning("Webhook com valor divergente para o pedido %s", order.pk)
-        return JsonResponse(
-            {"success": False, "message": "Valor divergente"},
-            status=400,
-        )
-
-    try:
-        verify_payment(order, transaction_nsu, slug)
-    except PaymentGatewayError as exc:
-        logger.warning("Pagamento do pedido %s não confirmado: %s", order.pk, exc)
-        return JsonResponse({"success": False, "message": str(exc)}, status=400)
-
-    return JsonResponse({"success": True, "message": None})
+    return redirect("pagamento_direto", token=order.public_token)
 
 
 def pedido_sucesso(request, token):
@@ -225,7 +185,15 @@ def pedido_sucesso(request, token):
     return render(
         request,
         "loja/sucesso.html",
-        {"order": order, "whatsapp_url": whatsapp_url},
+        {
+            "order": order,
+            "whatsapp_url": whatsapp_url,
+            "returned_from_payment": bool(
+                request.GET.get("transaction_nsu")
+                or request.GET.get("capture_method")
+                or request.GET.get("slug")
+            ),
+        },
     )
 
 
@@ -239,10 +207,11 @@ def gestao_pedidos(request):
     if request.method == "POST":
         order = get_object_or_404(Order, pk=request.POST.get("order_id"))
         status = request.POST.get("status")
+        payment_confirmed = request.POST.get("payment_confirmed") == "on"
         if status not in Order.Status.values:
             messages.error(request, "Status inválido.")
         elif (
-            not order.payment_confirmed
+            not payment_confirmed
             and status
             in {
                 Order.Status.CONFIRMED,
@@ -253,11 +222,24 @@ def gestao_pedidos(request):
         ):
             messages.error(
                 request,
-                "Aguarde a confirmação automática do pagamento antes de avançar o pedido.",
+                "Confira o recebimento no app InfinitePay e marque o pagamento como confirmado.",
             )
         else:
-            order.status = status
-            order.save(update_fields=["status", "updated_at"])
+            order.payment_confirmed = payment_confirmed
+            order.paid_at = timezone.now() if payment_confirmed else None
+            order.status = (
+                Order.Status.CONFIRMED
+                if payment_confirmed and status == Order.Status.NEW
+                else status
+            )
+            order.save(
+                update_fields=[
+                    "status",
+                    "payment_confirmed",
+                    "paid_at",
+                    "updated_at",
+                ]
+            )
             messages.success(request, f"Pedido #{order.pk} atualizado.")
         return redirect("gestao_pedidos")
 
