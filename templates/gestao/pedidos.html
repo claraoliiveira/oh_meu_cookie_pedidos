@@ -1,45 +1,170 @@
 {% extends 'base.html' %}
 {% block title %}Pedidos | Oh! Meu Cookie{% endblock %}
 {% block content %}
-<main class="management-shell">
-  <div class="page-heading">
-    <div><span class="kicker">Área protegida</span><h1>Pedidos recebidos</h1><p>Acompanhe cada pedido, o preparo e a confirmação do pagamento.</p></div>
-    <form method="get" class="search-form"><input name="q" value="{{ query }}" placeholder="Nome, WhatsApp ou nº"><button type="submit">Buscar</button></form>
+<main class="management-shell orders-dashboard">
+  <div class="page-heading orders-heading">
+    <div>
+      <span class="kicker">Central da loja</span>
+      <h1>Pedidos</h1>
+      <p>Confira pagamentos, organize o preparo e acompanhe cada retirada.</p>
+    </div>
+    <a class="new-order-link" href="{% url 'catalogo' %}" target="_blank" rel="noopener">+ Abrir loja</a>
   </div>
 
-  <section class="management-panel">
-    <div class="order-cards">
-      {% for order in orders %}
-        <article class="management-order">
-          <div class="order-head">
-            <div><span class="status-badge status-{{ order.status|lower }}">{{ order.get_status_display }}</span><h2>Pedido #{{ order.pk }}</h2><small>{{ order.created_at|date:'d/m/Y · H:i' }}</small></div>
-            <strong>R$ {{ order.total|floatformat:2 }}</strong>
+  <section class="order-metrics" aria-label="Resumo dos pedidos">
+    <a href="?status=NOVO" class="metric-card metric-new {% if status_filter == 'NOVO' %}active{% endif %}">
+      <span>Novos</span><strong>{{ summary.new }}</strong><small>Aguardando atenção</small>
+    </a>
+    <a href="?payment=pending" class="metric-card metric-pending {% if payment_filter == 'pending' %}active{% endif %}">
+      <span>Pagamento pendente</span><strong>{{ summary.payment_pending }}</strong><small>Conferir na InfinitePay</small>
+    </a>
+    <a href="?status=EM_PREPARO" class="metric-card metric-preparing {% if status_filter == 'EM_PREPARO' %}active{% endif %}">
+      <span>Em preparo</span><strong>{{ summary.preparing }}</strong><small>Na produção</small>
+    </a>
+    <a href="?status=PRONTO" class="metric-card metric-ready {% if status_filter == 'PRONTO' %}active{% endif %}">
+      <span>Prontos</span><strong>{{ summary.ready }}</strong><small>Aguardando retirada</small>
+    </a>
+    <a href="?pickup_date={{ today|date:'Y-m-d' }}" class="metric-card metric-today {% if pickup_date_filter == today|date:'Y-m-d' %}active{% endif %}">
+      <span>Retiradas hoje</span><strong>{{ summary.today }}</strong><small>{{ today|date:'d/m/Y' }}</small>
+    </a>
+  </section>
+
+  <section class="order-filter-panel">
+    <form method="get" class="order-filters">
+      <label class="filter-search">
+        <span>Buscar pedido</span>
+        <input name="q" value="{{ query }}" placeholder="Nome, WhatsApp ou número">
+      </label>
+      <label>
+        <span>Status</span>
+        <select name="status">
+          <option value="">Todos os status</option>
+          {% for value, label in statuses %}
+            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>Pagamento</span>
+        <select name="payment">
+          <option value="">Todos</option>
+          <option value="pending" {% if payment_filter == 'pending' %}selected{% endif %}>Pendente</option>
+          <option value="paid" {% if payment_filter == 'paid' %}selected{% endif %}>Confirmado</option>
+        </select>
+      </label>
+      <label>
+        <span>Data de retirada</span>
+        <input type="date" name="pickup_date" value="{{ pickup_date_filter }}">
+      </label>
+      <button type="submit">Filtrar</button>
+      {% if has_filters %}<a class="clear-filters" href="{% url 'gestao_pedidos' %}">Limpar</a>{% endif %}
+    </form>
+  </section>
+
+  <section class="order-groups" aria-live="polite">
+    {% for group in order_groups %}
+      <div class="pickup-order-group {% if group.is_today %}is-today{% elif group.is_past %}is-past{% endif %}">
+        <header class="pickup-group-heading">
+          <div>
+            <span class="pickup-calendar">{% if group.is_today %}Hoje{% elif group.is_past %}Data anterior{% else %}Retirada{% endif %}</span>
+            <h2>{{ group.label }}</h2>
           </div>
-          <div class="order-info-grid">
-            <div><small>Cliente</small><strong>{{ order.customer.name }}</strong><span>{{ order.customer.phone }}</span></div>
-            <div><small>Retirada</small><strong>{{ order.pickup_slot.pickup_date|date:'d/m/Y' }}</strong><span>{{ order.pickup_slot.period }} · {{ order.pickup_slot.location }}</span></div>
-            <div>
-              <small>Pagamento</small>
-              <strong>{{ order.get_payment_method_display }}</strong>
-              <span class="payment-mini {% if order.payment_confirmed %}paid{% else %}pending{% endif %}">{% if order.payment_confirmed %}✓ Confirmado após conferência{% else %}Pendente de conferência{% endif %}</span>
-              {% if order.paid_at %}<span>{{ order.paid_at|date:'d/m/Y · H:i' }}{% if order.payment_installments and order.payment_installments > 1 %} · {{ order.payment_installments }}x{% endif %}</span>{% endif %}
-            </div>
-          </div>
-          <div class="ordered-items">
-            {% for item in order.items.all %}<span>{{ item.quantity }}x {{ item.product.name }}</span>{% endfor %}
-          </div>
-          {% if order.notes %}<p class="order-notes"><b>Observações:</b> {{ order.notes }}</p>{% endif %}
-          <form method="post" class="order-update">
-            {% csrf_token %}<input type="hidden" name="order_id" value="{{ order.pk }}">
-            <label>Status<select name="status">{% for value,label in statuses %}<option value="{{ value }}" {% if order.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-            <label class="check-line"><input type="checkbox" name="payment_confirmed" {% if order.payment_confirmed %}checked{% endif %}><span>Conferi no app InfinitePay e recebi</span></label>
-            <button type="submit">Salvar pedido</button>
-          </form>
-        </article>
-      {% empty %}
-        <div class="empty-state">Nenhum pedido encontrado.</div>
-      {% endfor %}
-    </div>
+          <span class="group-count">{{ group.orders|length }} pedido{{ group.orders|length|pluralize }}</span>
+        </header>
+
+        <div class="order-cards">
+          {% for order in group.orders %}
+            <article class="management-order {% if not order.payment_confirmed and order.status != 'CANCELADO' %}needs-payment{% endif %} {% if order.pickup_is_overdue %}is-overdue{% endif %}">
+              <div class="order-head">
+                <div class="order-title-line">
+                  <span class="status-badge status-{{ order.status|lower }}">{{ order.get_status_display }}</span>
+                  {% if order.pickup_is_overdue %}<span class="attention-badge">Retirada atrasada</span>{% endif %}
+                  <h3>Pedido #{{ order.pk }}</h3>
+                  <small>Recebido em {{ order.created_at|date:'d/m/Y · H:i' }}</small>
+                </div>
+                <div class="order-total"><small>Total</small><strong>R$ {{ order.total|floatformat:2 }}</strong></div>
+              </div>
+
+              <div class="order-info-grid">
+                <div class="customer-info">
+                  <small>Cliente</small>
+                  <strong>{{ order.customer.name }}</strong>
+                  <span>{{ order.customer.phone }}</span>
+                  <a href="{{ order.management_whatsapp_url }}" target="_blank" rel="noopener">Conversar no WhatsApp</a>
+                </div>
+                <div>
+                  <small>Horário e local</small>
+                  <strong>{{ order.pickup_slot.period }}</strong>
+                  <span>{{ order.pickup_slot.location }}</span>
+                </div>
+                <div class="payment-info">
+                  <small>Pagamento</small>
+                  <strong>{{ order.get_payment_method_display }}</strong>
+                  <span class="payment-mini {% if order.payment_confirmed %}paid{% else %}pending{% endif %}">
+                    {% if order.payment_confirmed %}✓ Recebimento confirmado{% else %}● Aguardando conferência{% endif %}
+                  </span>
+                  {% if order.paid_at %}<span>Confirmado em {{ order.paid_at|date:'d/m/Y · H:i' }}</span>{% endif %}
+                </div>
+              </div>
+
+              <div class="order-products">
+                <small>Itens do pedido</small>
+                <div class="ordered-items">
+                  {% for item in order.items.all %}<span><b>{{ item.quantity }}×</b> {{ item.product.name }}</span>{% endfor %}
+                </div>
+              </div>
+              {% if order.notes %}<p class="order-notes"><b>Observação do cliente:</b> {{ order.notes }}</p>{% endif %}
+
+              {% if order.status != 'CANCELADO' and order.status != 'CONCLUIDO' %}
+                <div class="order-actions">
+                  {% if not order.payment_confirmed %}
+                    <form method="post" class="payment-confirm-form">
+                      {% csrf_token %}
+                      <input type="hidden" name="order_id" value="{{ order.pk }}">
+                      <input type="hidden" name="action" value="confirm_payment">
+                      <label class="payment-proof">
+                        <input type="checkbox" name="payment_checked" value="yes" required>
+                        <span>Conferi no app InfinitePay e o valor foi recebido</span>
+                      </label>
+                      <button type="submit" class="action-button confirm-payment">Confirmar pagamento</button>
+                    </form>
+                  {% else %}
+                    <form method="post" class="advance-form">
+                      {% csrf_token %}
+                      <input type="hidden" name="order_id" value="{{ order.pk }}">
+                      <button type="submit" name="action" value="advance" class="action-button advance-order">
+                        {% if order.status == 'CONFIRMADO' %}Iniciar preparo
+                        {% elif order.status == 'EM_PREPARO' %}Marcar como pronto
+                        {% elif order.status == 'PRONTO' %}Finalizar retirada
+                        {% else %}Avançar pedido{% endif %}
+                      </button>
+                    </form>
+                  {% endif %}
+                  <a class="action-button whatsapp-action" href="{{ order.management_whatsapp_url }}" target="_blank" rel="noopener">WhatsApp</a>
+                  <form method="post" class="cancel-form" onsubmit="return confirm('Deseja realmente cancelar o pedido #{{ order.pk }}?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="order_id" value="{{ order.pk }}">
+                    <button type="submit" name="action" value="cancel" class="cancel-order">Cancelar</button>
+                  </form>
+                </div>
+              {% else %}
+                <div class="closed-order-message">
+                  {% if order.status == 'CONCLUIDO' %}✓ Pedido retirado e finalizado{% else %}Pedido cancelado{% endif %}
+                  <a href="{{ order.management_whatsapp_url }}" target="_blank" rel="noopener">Abrir WhatsApp</a>
+                </div>
+              {% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      </div>
+    {% empty %}
+      <div class="empty-state order-empty">
+        <span>🍪</span>
+        <h2>Nenhum pedido encontrado</h2>
+        <p>{% if has_filters %}Tente limpar ou alterar os filtros.{% else %}Os novos pedidos aparecerão aqui.{% endif %}</p>
+        {% if has_filters %}<a href="{% url 'gestao_pedidos' %}">Limpar filtros</a>{% endif %}
+      </div>
+    {% endfor %}
   </section>
 </main>
 {% endblock %}

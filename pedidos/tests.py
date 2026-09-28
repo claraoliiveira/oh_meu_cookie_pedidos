@@ -185,6 +185,75 @@ class ManagementTests(TestCase):
         self.assertEqual(order.status, Order.Status.CONFIRMED)
         self.assertIsNotNone(order.paid_at)
 
+    def _create_order(self, *, phone="33999999997", status=Order.Status.NEW, paid=False):
+        product = Product.objects.create(name=f"Cookie {phone}", price=Decimal("3.50"))
+        slot, _ = PickupSlot.objects.get_or_create(
+            pickup_date=timezone.localdate() + timedelta(days=2),
+            period="14:10 até 14:40",
+            location=SCHOOL,
+        )
+        customer = Customer.objects.create(name="Maria Cliente", phone=phone)
+        order = Order.objects.create(
+            customer=customer,
+            pickup_slot=slot,
+            payment_method=Order.PaymentMethod.PIX,
+            total=Decimal("7.00"),
+            status=status,
+            payment_confirmed=paid,
+            paid_at=timezone.now() if paid else None,
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=product,
+            quantity=2,
+            unit_price=product.price,
+        )
+        return order
+
+    def test_orders_dashboard_has_summary_filters_groups_and_whatsapp(self):
+        self.client.force_login(self.user)
+        order = self._create_order()
+
+        response = self.client.get(reverse("gestao_pedidos"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["summary"]["new"], 1)
+        self.assertContains(response, "Pagamento pendente")
+        self.assertContains(response, "Data de retirada")
+        self.assertContains(response, "Maria Cliente")
+        self.assertContains(response, "Conversar no WhatsApp")
+        self.assertContains(response, f"Pedido #{order.pk}")
+
+    def test_orders_can_be_filtered_by_status_payment_and_search(self):
+        self.client.force_login(self.user)
+        pending = self._create_order(phone="33999999996")
+        paid = self._create_order(
+            phone="33999999995",
+            status=Order.Status.PREPARING,
+            paid=True,
+        )
+
+        response = self.client.get(
+            reverse("gestao_pedidos"),
+            {"q": "Maria", "status": Order.Status.PREPARING, "payment": "paid"},
+        )
+
+        self.assertContains(response, f"Pedido #{paid.pk}")
+        self.assertNotContains(response, f"Pedido #{pending.pk}")
+
+    def test_paid_order_can_advance_with_quick_action(self):
+        self.client.force_login(self.user)
+        order = self._create_order(status=Order.Status.CONFIRMED, paid=True)
+
+        response = self.client.post(
+            reverse("gestao_pedidos"),
+            {"order_id": order.pk, "action": "advance"},
+        )
+        order.refresh_from_db()
+
+        self.assertRedirects(response, reverse("gestao_pedidos"))
+        self.assertEqual(order.status, Order.Status.PREPARING)
+
     def test_manager_can_add_monday_with_automatic_slots(self):
         self.client.force_login(self.user)
         pickup_date = next_weekday(0)
