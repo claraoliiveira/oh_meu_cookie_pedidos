@@ -202,18 +202,54 @@ def gestao_inicio(request):
     return redirect("gestao_pedidos")
 
 
-def _management_whatsapp_url(order):
+def _management_whatsapp_url(order, message_kind="contact"):
     phone = "".join(character for character in order.customer.phone if character.isdigit())
     if not phone.startswith("55"):
         phone = f"55{phone}"
-    message = "\n".join(
-        [
+    messages_by_kind = {
+        "payment": [
+            f"Olá, {order.customer.name}! 🍪",
+            f"O pagamento do seu pedido #{order.pk} foi confirmado com sucesso!",
+            "Agora vamos organizar tudo com muito carinho.",
+            f"Retirada: {order.pickup_slot}",
+            f"Total: R$ {order.total:.2f}",
+        ],
+        "preparing": [
+            f"Olá, {order.customer.name}! 🍪",
+            f"Seu pedido #{order.pk} já está em preparo.",
+            "Seus cookies estão sendo preparados com muito carinho!",
+            f"Retirada: {order.pickup_slot}",
+        ],
+        "ready": [
+            f"Olá, {order.customer.name}! 🍪",
+            f"Boa notícia: seu pedido #{order.pk} está pronto para retirada!",
+            f"Retirada: {order.pickup_slot}",
+            "Esperamos você! 💗",
+        ],
+        "cancelled": [
+            f"Olá, {order.customer.name}.",
+            f"O pedido #{order.pk} foi cancelado.",
+            "Se precisar de ajuda ou quiser fazer um novo pedido, fale conosco por aqui.",
+        ],
+        "reminder": [
+            f"Olá, {order.customer.name}! Passando para lembrar da retirada do pedido #{order.pk} hoje. 🍪",
+            f"Horário e local: {order.pickup_slot.period} — {order.pickup_slot.location}",
+            f"Total: R$ {order.total:.2f}",
+            "Até mais! 💗",
+        ],
+        "completed": [
+            f"Olá, {order.customer.name}! 🍪",
+            f"O pedido #{order.pk} foi finalizado.",
+            "Muito obrigada pela preferência. Esperamos que você aproveite cada cookie! 💗",
+        ],
+        "contact": [
             f"Olá, {order.customer.name}! Aqui é da Oh! Meu Cookie 🍪",
             f"Estou entrando em contato sobre o pedido #{order.pk}.",
             f"Retirada: {order.pickup_slot}",
             f"Total: R$ {order.total:.2f}",
-        ]
-    )
+        ],
+    }
+    message = "\n".join(messages_by_kind.get(message_kind, messages_by_kind["contact"]))
     return f"https://wa.me/{phone}?text={quote(message)}"
 
 
@@ -222,6 +258,7 @@ def gestao_pedidos(request):
     if request.method == "POST":
         order = get_object_or_404(Order, pk=request.POST.get("order_id"))
         action = request.POST.get("action", "legacy_update")
+        notify_kind = None
 
         if action == "confirm_payment":
             if request.POST.get("payment_checked") != "yes":
@@ -240,6 +277,7 @@ def gestao_pedidos(request):
                     update_fields=["status", "payment_confirmed", "paid_at", "updated_at"]
                 )
                 messages.success(request, f"Pagamento do pedido #{order.pk} confirmado.")
+                notify_kind = "payment"
         elif action == "advance":
             next_status = {
                 Order.Status.CONFIRMED: Order.Status.PREPARING,
@@ -260,6 +298,11 @@ def gestao_pedidos(request):
                     request,
                     f"Pedido #{order.pk}: {order.get_status_display()}.",
                 )
+                notify_kind = {
+                    Order.Status.PREPARING: "preparing",
+                    Order.Status.READY: "ready",
+                    Order.Status.COMPLETED: "completed",
+                }.get(next_status)
         elif action == "cancel":
             if order.status == Order.Status.COMPLETED:
                 messages.error(request, "Um pedido já retirado não pode ser cancelado.")
@@ -267,6 +310,14 @@ def gestao_pedidos(request):
                 order.status = Order.Status.CANCELLED
                 order.save(update_fields=["status", "updated_at"])
                 messages.success(request, f"Pedido #{order.pk} cancelado.")
+                notify_kind = "cancelled"
+        elif action == "reminder":
+            if order.pickup_slot.pickup_date != timezone.localdate():
+                messages.error(request, "O lembrete só pode ser enviado no dia da retirada.")
+            elif order.status in {Order.Status.CANCELLED, Order.Status.COMPLETED}:
+                messages.error(request, "Este pedido não possui retirada pendente.")
+            else:
+                notify_kind = "reminder"
         else:
             # Mantém compatibilidade com a versão anterior e com formulários já abertos.
             status = request.POST.get("status")
@@ -304,6 +355,8 @@ def gestao_pedidos(request):
                     ]
                 )
                 messages.success(request, f"Pedido #{order.pk} atualizado.")
+        if notify_kind:
+            return redirect(_management_whatsapp_url(order, notify_kind))
         return redirect("gestao_pedidos")
 
     today = timezone.localdate()

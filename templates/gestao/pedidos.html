@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Pedidos | Oh! Meu Cookie{% endblock %}
 {% block content %}
 <main class="management-shell orders-dashboard">
@@ -118,7 +119,7 @@
               {% if order.status != 'CANCELADO' and order.status != 'CONCLUIDO' %}
                 <div class="order-actions">
                   {% if not order.payment_confirmed %}
-                    <form method="post" class="payment-confirm-form">
+                    <form method="post" class="payment-confirm-form notify-customer-form" target="_blank">
                       {% csrf_token %}
                       <input type="hidden" name="order_id" value="{{ order.pk }}">
                       <input type="hidden" name="action" value="confirm_payment">
@@ -126,22 +127,29 @@
                         <input type="checkbox" name="payment_checked" value="yes" required>
                         <span>Conferi no app InfinitePay e o valor foi recebido</span>
                       </label>
-                      <button type="submit" class="action-button confirm-payment">Confirmar pagamento</button>
+                      <button type="submit" class="action-button confirm-payment">Confirmar pagamento e avisar</button>
                     </form>
                   {% else %}
-                    <form method="post" class="advance-form">
+                    <form method="post" class="advance-form notify-customer-form" target="_blank">
                       {% csrf_token %}
                       <input type="hidden" name="order_id" value="{{ order.pk }}">
                       <button type="submit" name="action" value="advance" class="action-button advance-order">
-                        {% if order.status == 'CONFIRMADO' %}Iniciar preparo
-                        {% elif order.status == 'EM_PREPARO' %}Marcar como pronto
-                        {% elif order.status == 'PRONTO' %}Finalizar retirada
+                        {% if order.status == 'CONFIRMADO' %}Iniciar preparo e avisar
+                        {% elif order.status == 'EM_PREPARO' %}Marcar como pronto e avisar
+                        {% elif order.status == 'PRONTO' %}Finalizar retirada e agradecer
                         {% else %}Avançar pedido{% endif %}
                       </button>
                     </form>
                   {% endif %}
+                  {% if order.pickup_is_today %}
+                    <form method="post" class="reminder-form notify-customer-form" target="_blank">
+                      {% csrf_token %}
+                      <input type="hidden" name="order_id" value="{{ order.pk }}">
+                      <button type="submit" name="action" value="reminder" class="action-button reminder-action">Lembrar retirada hoje</button>
+                    </form>
+                  {% endif %}
                   <a class="action-button whatsapp-action" href="{{ order.management_whatsapp_url }}" target="_blank" rel="noopener">WhatsApp</a>
-                  <form method="post" class="cancel-form" onsubmit="return confirm('Deseja realmente cancelar o pedido #{{ order.pk }}?');">
+                  <form method="post" class="cancel-form notify-customer-form confirm-cancel" target="_blank" data-order-number="{{ order.pk }}">
                     {% csrf_token %}
                     <input type="hidden" name="order_id" value="{{ order.pk }}">
                     <button type="submit" name="action" value="cancel" class="cancel-order">Cancelar</button>
@@ -167,4 +175,5 @@
     {% endfor %}
   </section>
 </main>
+<script src="{% static 'js/gestao_pedidos.js' %}?v=1" defer></script>
 {% endblock %}

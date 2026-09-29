@@ -175,6 +175,7 @@ select:disabled { opacity: .62; }
 .action-button, .cancel-order { display: inline-flex; min-height: 44px; padding: 10px 15px; align-items: center; justify-content: center; border: 0; border-radius: 12px; font-size: 11px; font-weight: 900; text-align: center; cursor: pointer; }
 .confirm-payment, .advance-order { width: 100%; color: white; background: var(--pink-dark); }
 .whatsapp-action { color: white; background: #26855d; }
+.reminder-action { color: #5c431e; background: #f8ddb0; }
 .cancel-order { color: #9a304a; background: #ffe8ec; }
 .closed-order-message { display: flex; margin-top: 17px; padding-top: 15px; justify-content: space-between; gap: 15px; border-top: 1px solid var(--line); color: var(--cocoa-soft); font-size: 11px; font-weight: 800; }
 .closed-order-message a { color: #247451; }

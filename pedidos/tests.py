@@ -251,8 +251,36 @@ class ManagementTests(TestCase):
         )
         order.refresh_from_db()
 
-        self.assertRedirects(response, reverse("gestao_pedidos"))
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith("https://wa.me/55"))
         self.assertEqual(order.status, Order.Status.PREPARING)
+
+    def test_status_action_redirects_to_whatsapp_message(self):
+        self.client.force_login(self.user)
+        order = self._create_order(status=Order.Status.CONFIRMED, paid=True)
+
+        response = self.client.post(
+            reverse("gestao_pedidos"),
+            {"order_id": order.pk, "action": "advance"},
+        )
+        order.refresh_from_db()
+
+        self.assertEqual(order.status, Order.Status.PREPARING)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith("https://wa.me/55"))
+        self.assertIn("em%20preparo", response.url)
+
+    def test_reminder_is_only_available_on_pickup_day(self):
+        self.client.force_login(self.user)
+        order = self._create_order(status=Order.Status.CONFIRMED, paid=True)
+
+        response = self.client.post(
+            reverse("gestao_pedidos"),
+            {"order_id": order.pk, "action": "reminder"},
+            follow=True,
+        )
+
+        self.assertContains(response, "O lembrete só pode ser enviado no dia da retirada")
 
     def test_manager_can_add_monday_with_automatic_slots(self):
         self.client.force_login(self.user)
