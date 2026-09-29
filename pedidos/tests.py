@@ -34,6 +34,21 @@ class PublicOrderTests(TestCase):
         self.assertNotContains(response, "disponível(is)")
         self.assertNotIn("available_quantity", [field.name for field in Product._meta.fields])
 
+    def test_real_product_photo_is_shown_and_unknown_product_has_fallback(self):
+        self.product.name = "Tradicional"
+        self.product.save(update_fields=["name"])
+
+        response = self.client.get(reverse("catalogo"))
+        self.assertContains(response, "img/products/cookie-tradicional.jpeg")
+        self.assertContains(response, "Foto real do Tradicional")
+
+        self.product.name = "Sabor futuro"
+        self.product.save(update_fields=["name"])
+        self.assertEqual(self.product.photo_static_path, "")
+        response = self.client.get(reverse("catalogo"))
+        self.assertContains(response, 'data-name="Sabor futuro"')
+        self.assertContains(response, "🍪")
+
     def test_valid_order_is_saved(self):
         response = self.client.post(
             reverse("finalizar_pedido"),

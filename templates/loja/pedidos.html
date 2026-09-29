@@ -35,7 +35,20 @@
       <div class="product-list">
         {% for product in products %}
           <article class="product-row" data-product data-id="{{ product.pk }}" data-name="{{ product.name }}" data-price="{{ product.price }}">
-            <div class="product-emoji" aria-hidden="true">🍪</div>
+            {% if product.photo_static_path %}
+              <div class="product-photo-wrap">
+                <img
+                  class="product-photo"
+                  src="{% static product.photo_static_path %}"
+                  alt="Foto real do {{ product.name }}"
+                  loading="lazy"
+                  width="104"
+                  height="104"
+                >
+              </div>
+            {% else %}
+              <div class="product-emoji" aria-hidden="true">🍪</div>
+            {% endif %}
             <div class="product-copy">
               <div class="product-name-line">
                 <h3>{{ product.name }}</h3>

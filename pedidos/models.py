@@ -7,6 +7,14 @@ from django.utils import timezone
 
 
 class Product(models.Model):
+    PHOTO_BY_NAME = {
+        "Tradicional": "img/products/cookie-tradicional.jpeg",
+        "Red Velvet": "img/products/cookie-red-velvet.jpeg",
+        "Chocolate com Chocolate Branco": "img/products/cookie-chocolate-branco.jpeg",
+        "Oreo": "img/products/cookie-oreo.jpeg",
+        "Nutella": "img/products/cookie-nutella.jpeg",
+    }
+
     name = models.CharField("produto", max_length=150)
     description = models.TextField("descrição", blank=True)
     price = models.DecimalField(
@@ -26,6 +34,11 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def photo_static_path(self):
+        """Foto real do cardápio, com fallback para produtos futuros."""
+        return self.PHOTO_BY_NAME.get(self.name, "")
 
 
 class PickupSlot(models.Model):
